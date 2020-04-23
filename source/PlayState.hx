@@ -1,5 +1,6 @@
 package;
 
+import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.FlxG;
 import flixel.FlxObject;
 import flixel.tile.FlxTilemap;
@@ -11,7 +12,9 @@ class PlayState extends FlxState
 	var player:Player;
 	var map:FlxOgmo3Loader;
 	var walls:FlxTilemap;
-
+	var coins:FlxTypedGroup<Coin>;
+	var enemies:FlxTypedGroup<Enemy>;
+	
 	override public function create()
 	{
 		map = new FlxOgmo3Loader(AssetPaths.thePowerOfHaxeFlixel__ogmo, AssetPaths.room_001__json);
@@ -21,9 +24,17 @@ class PlayState extends FlxState
 		walls.setTileProperties(2, FlxObject.ANY);
 		add(walls);
 
+		coins = new FlxTypedGroup<Coin>();
+		add(coins);
+
+		enemies = new FlxTypedGroup<Enemy>();
+		add(enemies);
+
 		player = new Player();
-		map.loadEntities(placeEntities, "entities");
 		add(player);
+
+		map.loadEntities(placeEntities, "entities");
+		FlxG.camera.follow(player, TOPDOWN, 1);
 
 		super.create();
 	}
@@ -33,12 +44,47 @@ class PlayState extends FlxState
 		super.update(elapsed);
 
 		FlxG.collide(player, walls);
+		FlxG.overlap(player, coins, playerTouchCoin);
+		FlxG.collide(enemies, walls);
+ 		enemies.forEachAlive(checkEnemyVision);
+	}
+
+	function checkEnemyVision(enemy:Enemy)
+	{
+		if (walls.ray(enemy.getMidpoint(), player.getMidpoint()))
+		{
+			enemy.seesPlayer = true;
+			enemy.playerPosition = player.getMidpoint();
+		}
+		else
+		{
+			enemy.seesPlayer = false;
+		}
+	}
+
+	function playerTouchCoin(player:Player, coin:Coin) {
+		if (player.alive && player.exists && coin.alive && coin.exists){
+			coin.kill();
+		}
 	}
 
 	function placeEntities(entity:EntityData) {
-		if (entity.name == "player")
+		var x = entity.x;
+		var y = entity.y;
+
+		switch (entity.name)
 		{
-			player.setPosition(entity.x, entity.y);
+			case "player":
+				player.setPosition(x, y);
+
+			case "coin":
+				coins.add(new Coin(x + 4, y + 4));
+
+			case "enemy":
+				enemies.add(new Enemy(x + 4, y, REGULAR));
+
+			case "boss":
+				enemies.add(new Enemy(x + 4, y, BOSS));
 		}
 	}
 }
